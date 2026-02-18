@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fotoclub - Gestión Completa</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #eef2f3; display: flex; justify-content: center; padding: 20px; }
+        .card { background: white; padding: 2rem; border-radius: 1rem; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 400px; }
+        input, select, button { width: 100%; padding: 12px; margin: 8px 0; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; }
+        button { background: #007bff; color: white; border: none; font-weight: bold; cursor: pointer; }
+        .admin-btn { background: #6f42c1; } 
+        .migrate-btn { background: #28a745; } 
+        .danger-btn { background: #dc3545; }
+        .hidden { display: none; }
+        .msg { padding: 10px; border-radius: 5px; margin-top: 10px; text-align: center; font-size: 0.85rem; }
+        .success { background: #d4edda; color: #155724; } 
+        .error { background: #f8d7da; color: #721c24; }
+        hr { border: 0; border-top: 1px solid #eee; margin: 15px 0; }
+        label { font-size: 0.75rem; font-weight: bold; color: #555; }
+        .confirm-screen { text-align: center; animation: fadeIn 0.5s; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+<body>
+<div class="card">
+    <div id="sec-login">
+        <h2>📸 Fotoclub</h2>
+        <input type="text" id="login-tel" placeholder="Teléfono" maxlength="10">
+        <input type="password" id="login-pin" placeholder="PIN" maxlength="4">
+        <button onclick="authAction()">Entrar</button>
+    </div>
+
+    <div id="sec-cambio-pin" class="hidden">
+        <h3>🔒 Actualizar PIN</h3>
+        <input type="password" id="pin-act" placeholder="PIN Actual (0000)" maxlength="4">
+        <input type="password" id="pin-new" placeholder="Nuevo PIN (4 dígitos)" maxlength="4">
+        <button onclick="updatePinAction()">Guardar y Reingresar</button>
+    </div>
+
+    <div id="sec-socio" class="hidden">
+        <div id="socio-contenido">
+            <h3 id="socio-nombre"></h3>
+            <div id="cont-entrada">
+                <label>Actividad:</label>
+                <select id="acc-actividad"><option value="clase">Clase</option><option value="asesoria">Asesoría</option></select>
+                <button onclick="asistenciaAction()">Registrar Entrada (2h)</button>
+            </div>
+            <div id="cont-salida" class="hidden">
+                <p style="color: #28a745; font-weight: bold;">✅ Tienes un acceso activo</p>
+                <p>Tu salida se registrará automáticamente.</p>
+            </div>
+            <hr><button onclick="logout()" style="background:#6c757d">Cerrar Sesión</button>
+        </div>
+    </div>
+
+    <div id="sec-admin" class="hidden">
+        <h3>🛠 Panel de Control</h3>
+        
+        <label>NUEVO SOCIO O MIGRACIÓN:</label>
+        <input type="text" id="adm-nom" placeholder="Nombre(s)">
+        <input type="text" id="adm-ape" placeholder="Apellido(s)">
+        <input type="text" id="adm-tel" placeholder="Teléfono" maxlength="10">
+        <input type="email" id="adm-correo" placeholder="Correo">
+        <select id="adm-tipo-pers">
+            <option value="1">Facultad</option>
+            <option value="2">Universidad</option>
+            <option value="3">Externo</option>
+        </select>
+        <button class="admin-btn" onclick="userAction('crear-usuario')">Inscribir como Nuevo</button>
+        <button class="migrate-btn" onclick="userAction('migrar-socio')">Migrar Socio Antiguo</button>
+
+        <hr>
+        <label>RENOVAR MEMBRESÍA VENCIDA:</label>
+        <input type="text" id="re-tel" placeholder="Teléfono del socio" maxlength="10">
+        <button class="migrate-btn" onclick="reInscribirAction()">Aplicar Renovación</button>
+
+        <hr>
+        <label>SOPORTE TÉCNICO:</label>
+        <input type="text" id="adm-reset-tel" placeholder="Teléfono para Reset PIN" maxlength="10">
+        <button class="danger-btn" onclick="resetPinAction()">Resetear PIN a 0000</button>
+        
+        <hr>
+        <button onclick="logout()" style="background:#6c757d">Salir del Panel</button>
+    </div>
+
+    <div id="global-msg" class="msg hidden"></div>
+</div>
+
+<script>
+    let token = null;
+
+    const showMsg = (t, e=false) => { 
+        const m = document.getElementById("global-msg");
+        m.innerText = t; m.className = "msg " + (e ? "error" : "success");
+        m.classList.remove("hidden");
+        setTimeout(() => m.classList.add("hidden"), 4000);
+    };
+
+    async function authAction() {
+        const tel = document.getElementById("login-tel").value;
+        const pin = document.getElementById("login-pin").value;
+        try {
+            const res = await fetch(`/login?telefono=${tel}&pin=${pin}`, {method:'POST'});
+            const d = await res.json();
+            if(!res.ok) return showMsg(d.detail || "Error", true);
+            token = d.access_token;
+            document.getElementById("sec-login").classList.add("hidden");
+            if(d.cambiar_pin) document.getElementById("sec-cambio-pin").classList.remove("hidden");
+            else if(d.es_admin) document.getElementById("sec-admin").classList.remove("hidden");
+            else {
+                document.getElementById("socio-nombre").innerText = "Hola, " + d.nombre;
+                document.getElementById("sec-socio").classList.remove("hidden");
+                document.getElementById("cont-entrada").classList.toggle("hidden", d.esta_dentro);
+                document.getElementById("cont-salida").classList.toggle("hidden", !d.esta_dentro);
+            }
+        } catch(e) { showMsg("Servidor desconectado", true); }
+    }
+
+    async function asistenciaAction() {
+        const act = document.getElementById("acc-actividad").value;
+        const res = await fetch(`/acceso?actividad=${act}`, {
+            method: 'POST', headers: {'Authorization': 'Bearer ' + token}
+        });
+        if(res.ok) {
+            const nombre = document.getElementById("socio-nombre").innerText;
+            document.getElementById("socio-contenido").innerHTML = `
+                <div class="confirm-screen">
+                    <h2 style="color: #28a745;">¡ÉXITO!</h2>
+                    <div style="background: #28a745; color: white; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                        <p style="font-size: 1.2rem; font-weight: bold;">ACCESO REGISTRADO</p>
+                        <p>${nombre}</p>
+                        <p style="font-size: 0.8rem;">Salida automática programada (+2h)</p>
+                    </div>
+                    <p>La sesión se cerrará en <strong id="countdown">10</strong> segundos...</p>
+                </div>`;
+            let s = 10;
+            setInterval(() => { s--; if(document.getElementById("countdown")) document.getElementById("countdown").innerText = s; if(s<=0) location.reload(); }, 1000);
+        } else showMsg("Error al registrar entrada", true);
+    }
+
+    async function userAction(endpoint) {
+        const n = document.getElementById("adm-nom").value, a = document.getElementById("adm-ape").value;
+        const t = document.getElementById("adm-tel").value, c = document.getElementById("adm-correo").value;
+        const tp = document.getElementById("adm-tipo-pers").value;
+        
+        if(!n || !t) return showMsg("Nombre y teléfono son obligatorios", true);
+
+        const res = await fetch(`/admin/${endpoint}?nombre=${encodeURIComponent(n)}&apellido=${encodeURIComponent(a)}&telefono=${t}&correo=${encodeURIComponent(c)}&tipo_persona_id=${tp}`, {
+            method:'POST', headers:{'Authorization':'Bearer '+token}
+        });
+        if(res.ok) { 
+            showMsg("✅ Operación exitosa"); 
+            document.querySelectorAll("#sec-admin input").forEach(i => i.value = ""); 
+        } else {
+            const d = await res.json();
+            showMsg(d.detail || "Error en el registro", true);
+        }
+    }
+
+    async function reInscribirAction() {
+        const t = document.getElementById("re-tel").value;
+        const tp = document.getElementById("adm-tipo-pers").value; // Usa el tipo de persona seleccionado arriba
+        if(!t) return showMsg("Ingrese el teléfono del socio", true);
+
+        const res = await fetch(`/admin/reinscribir-socio?telefono=${t}&tipo_persona_id=${tp}`, {
+            method:'POST', headers:{'Authorization':'Bearer '+token}
+        });
+        if(res.ok) {
+            showMsg("✅ Membresía renovada con éxito");
+            document.getElementById("re-tel").value = "";
+        } else {
+            const d = await res.json();
+            showMsg(d.detail || "Error al renovar", true);
+        }
+    }
+
+    async function resetPinAction() {
+        const t = document.getElementById("adm-reset-tel").value;
+        if(!t) return showMsg("Ingrese el teléfono", true);
+        const res = await fetch(`/admin/reset-pin?telefono_usuario=${t}`, {
+            method: 'POST', headers: {'Authorization': 'Bearer ' + token}
+        });
+        if(res.ok) {
+            showMsg("✅ PIN restablecido a 0000");
+            document.getElementById("adm-reset-tel").value = "";
+        } else showMsg("Socio no encontrado", true);
+    }
+
+    async function updatePinAction() {
+        const act = document.getElementById("pin-act").value;
+        const newP = document.getElementById("pin-new").value;
+        if(newP.length !== 4) return showMsg("El PIN debe ser de 4 dígitos", true);
+
+        const res = await fetch(`/cambiar-pin?pin_actual=${act}&pin_nuevo=${newP}`, {
+            method: 'POST', headers: {'Authorization': 'Bearer ' + token}
+        });
+        if(res.ok) { alert("PIN actualizado. Reingresa con tu nueva clave."); location.reload(); }
+        else showMsg("PIN actual incorrecto", true);
+    }
+
+    function logout() { location.reload(); }
+</script>
+</body>
+</html>
