@@ -1298,3 +1298,22 @@ INFO:     132.247.100.226:0 - "GET / HTTP/1.1" 200 OK
 INFO:     132.248.54.130:0 - "POST /acceso?actividad=asesoria HTTP/1.1" 200 OK
 INFO:     132.248.54.130:0 - "GET / HTTP/1.1" 200 OK
 INFO:     132.247.100.226:0 - "GET / HTTP/1.1" 200 OK
+INFO:     132.247.100.226:0 - "GET / HTTP/1.1" 200 OK
+INFO:     132.247.100.226:0 - "GET / HTTP/1.1" 200 OK
+INFO:     40.88.21.235:0 - "GET / HTTP/1.1" 200 OK
+INFO:     40.88.21.235:0 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+INFO:     132.247.100.226:0 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+INFO:     132.247.100.226:0 - "GET / HTTP/1.1" 200 OK
+INFO:     132.247.100.226:0 - "POST /login?telefono=5520217187&pin=1489 HTTP/1.1" 200 OK
+INFO:     132.247.100.226:0 - "POST /admin/migrar-socio?nombre=Daniel&apellido=Olascoaga&telefono=5530826136&correo=danyolasar%40gmail.com&tipo_persona_id=1 HTTP/1.1" 200 OK
+INFO:     132.247.100.226:0 - "GET / HTTP/1.1" 200 OK
+INFO:     132.247.100.226:0 - "POST /login?telefono=5530826136&pin=0000 HTTP/1.1" 200 OK
+INFO:     132.247.100.226:0 - "POST /cambiar-pin?pin_actual=2104&pin_nuevo=2104 HTTP/1.1" 401 Unauthorized
+INFO:     132.247.100.226:0 - "POST /cambiar-pin?pin_actual=0000&pin_nuevo=2104 HTTP/1.1" 200 OK
+INFO:     132.247.100.226:0 - "GET / HTTP/1.1" 200 OK
+INFO:     132.247.100.226:0 - "GET / HTTP/1.1" 200 OK
+INFO:     132.247.100.226:0 - "POST /login?telefono=5530826136&pin=2104 HTTP/1.1" 200 OK
+INFO:     132.247.100.226:0 - "POST /acceso?actividad=asesoria HTTP/1.1" 200 OK
+INFO:     132.247.100.226:0 - "GET / HTTP/1.1" 200 OK
+INFO:     132.247.100.226:0 - "GET / HTTP/1.1" 200 OK
+INFO:     132.247.100.226:0 - "GET / HTTP/1.1" 200 OK

@@ -1,0 +1,21 @@
+# Bases de Datos (SQLite)
+*.db
+*.sqlite3
+
+# Entornos virtuales
+venv/
+env/
+ENV/
+
+# Python (Archivos compilados)
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Logs y reportes temporales
+*.log
+*.csv
+
+# Configuración de editores/IDE
+.vscode/
+.idea/
