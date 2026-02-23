@@ -150,6 +150,42 @@ def reset_pin(telefono_usuario: str, current_user: models.Usuario = Depends(get_
     db.commit()
     return {"mensaje": "Reset exitoso"}
 
+# Endpoint para Listar Socios ordenados por apellido
+@app.get("/admin/listar-usuarios")
+def listar_usuarios(current_user: models.Usuario = Depends(get_current_user), db: Session = Depends(get_db)):
+    if not current_user.es_admin:
+        raise HTTPException(status_code=403, detail="No autorizado")
+
+    # Ordenamos por apellido de forma ascendente (A-Z)
+    usuarios = db.query(models.Usuario).filter(models.Usuario.es_admin == False).order_by(models.Usuario.apellido.asc()).all()
+
+    return [
+        {
+            "nombre": u.nombre,
+            "apellido": u.apellido,
+            "telefono": u.telefono
+        } for u in usuarios
+    ]
+
+# Endpoint para Historial de Asistencias
+@app.get("/admin/historial-hoy")
+def historial_hoy(current_user: models.Usuario = Depends(get_current_user), db: Session = Depends(get_db)):
+    if not current_user.es_admin:
+        raise HTTPException(status_code=403)
+
+    hoy_inicio = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    logs = db.query(models.Acceso).filter(models.Acceso.timestamp >= hoy_inicio).order_by(models.Acceso.timestamp.desc()).all()
+
+    # Retornamos la lista (si está vacía, el frontend manejará el mensaje)
+    return [
+        {
+            "hora": l.timestamp.strftime("%H:%M"),
+            "socio": f"{l.usuario.nombre} {l.usuario.apellido}",
+            "actividad": l.actividad,
+            "evento": l.tipo_evento.capitalize()
+        } for l in logs
+    ]
+
 app.mount("/static", StaticFiles(directory="static"), name="static")
 @app.get("/")
 def root(): return FileResponse(os.path.join("static", "index.html"))

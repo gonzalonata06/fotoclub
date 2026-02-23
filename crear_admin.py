@@ -8,10 +8,10 @@ db = SessionLocal()
 #db.query(models.Usuario).filter_by(telefono="5520217187").delete()
 
 admin_maestro = models.Usuario(
-    nombre="Alan",
-    apellido="GT",
-    telefono="5568742618",
-    correo="alan@example.com",
+    nombre="Mariel",
+    apellido="N",
+    telefono="5561963597",
+    correo="mariel@example.com",
     pin_hash=hash_pin("0000"),
     es_admin=True,
     requiere_cambio_pin=True,

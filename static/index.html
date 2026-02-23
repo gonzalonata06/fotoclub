@@ -68,9 +68,17 @@
             <option value="3">Externo</option>
         </select>
         <button class="admin-btn" onclick="userAction('crear-usuario')">Inscribir como Nuevo</button>
-        <button class="migrate-btn" onclick="userAction('migrar-socio')">Migrar Socio Antiguo</button>
+        <button class="migrate-btn" onclick="userAction('migrar-socio')">Reinscribir socio no dado de alta</button>
 
+	<hr>
+	<label>REPORTES:</label>
+	<div style="display: flex; gap: 5px;">
+    	<button class="admin-btn" onclick="listarSocios()">👥 Listar Socios</button>
+    	<button class="admin-btn" onclick="verAsistencias()">📋 Asistencias Hoy</button>
+	</div>
+	<div id="reporte-container" style="font-size: 0.8rem; margin-top: 10px; background: #f9f9f9; border-radius: 5px; overflow-x: auto;"></div>
         <hr>
+
         <label>RENOVAR MEMBRESÍA VENCIDA:</label>
         <input type="text" id="re-tel" placeholder="Teléfono del socio" maxlength="10">
         <button class="migrate-btn" onclick="reInscribirAction()">Aplicar Renovación</button>
@@ -199,7 +207,54 @@
         else showMsg("PIN actual incorrecto", true);
     }
 
+// Función renderTable actualizada para manejar listas vacías con mensaje
+function renderTable(data, columns, mensajeVacio = "No hay registros disponibles.") {
+    if (!data || data.length === 0) {
+        return `<p style="padding: 20px; text-align: center; color: #666; font-style: italic;">${mensajeVacio}</p>`;
+    }
+    
+    let html = '<table style="width:100%; border-collapse: collapse; text-align: left;">';
+    html += `<tr style="background:#eee;">${columns.map(c => `<th style="padding:8px; border-bottom: 2px solid #ddd;">${c}</th>`).join('')}</tr>`;
+    
+    data.forEach(row => {
+        html += `<tr style="border-bottom: 1px solid #eee;">
+            ${Object.values(row).map(v => `<td style="padding:8px;">${v}</td>`).join('')}
+        </tr>`;
+    });
+    return html + '</table>';
+}
+// Botón: Listar Socios
+async function listarSocios() {
+    try {
+        const res = await fetch('/admin/listar-usuarios', { 
+            headers: {'Authorization': 'Bearer ' + token} 
+        });
+        const data = await res.json();
+        document.getElementById("reporte-container").innerHTML = renderTable(data, ['Nombre', 'Apellido', 'Teléfono'], "No hay socios registrados aún.");
+    } catch (e) { 
+        showMsg("Error al conectar con el servidor", true); 
+    }
+}
+
+// Botón: Ver Asistencias
+async function verAsistencias() {
+    try {
+        const res = await fetch('/admin/historial-hoy', { 
+            headers: {'Authorization': 'Bearer ' + token} 
+        });
+        const data = await res.json();
+        const mensaje = "Nadie se ha registrado este día.";
+        document.getElementById("reporte-container").innerHTML = renderTable(data, ['Hora', 'Socio', 'Actividad', 'Evento'], mensaje);
+    } catch (e) { 
+        showMsg("Error al obtener asistencias", true); 
+    }
+}
+
+// También puedes eliminar la función filtrarReporte() y la variable let datosActuales;
+
     function logout() { location.reload(); }
+
+
 </script>
 </body>
 </html>
