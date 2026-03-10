@@ -10,6 +10,14 @@ import os
 from database import engine, SessionLocal
 import models
 from auth import hash_pin, verify_pin, create_access_token, SECRET_KEY, ALGORITHM
+import pytz # <-- Agregar esta importación
+
+# Definimos tu zona horaria local
+ZONA_HORARIA = pytz.timezone('America/Mexico_City') 
+
+def get_now():
+    # Esta función obtiene la hora actual de tu ciudad
+    return datetime.now(ZONA_HORARIA)
 
 app = FastAPI()
 
@@ -39,14 +47,18 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
         raise HTTPException(status_code=401, detail="Usuario inactivo")
     return usuario
 
+# --- ENDPOINT DE LOGIN CORREGIDO ---
 @app.post("/login")
 def login(telefono: str, pin: str, db: Session = Depends(get_db)):
     usuario = db.query(models.Usuario).filter_by(telefono=telefono).first()
     if not usuario: raise HTTPException(status_code=404, detail="Usuario no encontrado")
     if not usuario.activo: raise HTTPException(status_code=403, detail="Cuenta desactivada")
 
+    ahora = get_now() 
+
+    # Validación de Membresía (Correcto)
     if not usuario.es_admin and usuario.fecha_vencimiento:
-        if datetime.utcnow() > usuario.fecha_vencimiento:
+        if ahora.replace(tzinfo=None) > usuario.fecha_vencimiento:
             usuario.activo = False
             db.commit()
             raise HTTPException(status_code=403, detail="Membresía vencida")
@@ -54,10 +66,12 @@ def login(telefono: str, pin: str, db: Session = Depends(get_db)):
     if not verify_pin(pin, usuario.pin_hash):
         raise HTTPException(status_code=401, detail="PIN incorrecto")
 
+    # Validación de Sesión Activa (Corregido)
     ultimo = db.query(models.Acceso).filter_by(usuario_id=usuario.id).order_by(models.Acceso.timestamp.desc()).first()
     esta_dentro = False
     if ultimo and ultimo.tipo_evento == "entrada":
-        if datetime.utcnow() < (ultimo.timestamp + timedelta(hours=2)):
+        # Usamos ahora sin zona horaria para comparar con la base de datos
+        if ahora.replace(tzinfo=None) < (ultimo.timestamp + timedelta(hours=2)):
             esta_dentro = True
 
     access_token = create_access_token({"sub": str(usuario.id), "es_admin": usuario.es_admin})
@@ -69,13 +83,21 @@ def login(telefono: str, pin: str, db: Session = Depends(get_db)):
         "esta_dentro": esta_dentro
     }
 
+# --- MODIFICACIÓN EN EL ENDPOINT DE ACCESO ---
 @app.post("/acceso")
 def registrar_acceso(actividad: str, current_user: models.Usuario = Depends(get_current_user), db: Session = Depends(get_db)):
-    ahora = datetime.utcnow()
+    ahora = get_now() # <--- Cambio para usar CDMX
+
+    # SQLite guardará la hora tal cual (sin el objeto de zona horaria)
     db.add(models.Acceso(usuario_id=current_user.id, tipo_evento="entrada", actividad=actividad, timestamp=ahora))
     db.add(models.Acceso(usuario_id=current_user.id, tipo_evento="salida", actividad=actividad, timestamp=ahora + timedelta(hours=2)))
     db.commit()
-    return {"mensaje": "Acceso registrado"}
+
+    return {
+        "mensaje": "Acceso registrado",
+        "hora_confirmada": ahora.strftime("%H:%M:%S"),
+        "fecha_confirmada": ahora.strftime("%d/%m/%Y")
+    }
 
 @app.post("/cambiar-pin")
 def cambiar_pin(pin_actual: str, pin_nuevo: str, current_user: models.Usuario = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -89,7 +111,7 @@ def cambiar_pin(pin_actual: str, pin_nuevo: str, current_user: models.Usuario = 
 @app.post("/admin/crear-usuario")
 def crear_usuario(nombre: str, apellido: str, telefono: str, correo: str, tipo_persona_id: int, current_user: models.Usuario = Depends(get_current_user), db: Session = Depends(get_db)):
     if not current_user.es_admin: raise HTTPException(status_code=403, detail="No autorizado")
-    vencimiento = datetime.utcnow() + timedelta(days=DIAS_VIGENCIA)
+    vencimiento = get_now().replace(tzinfo=None) + timedelta(days=DIAS_VIGENCIA)
     costo_ref = db.query(models.CostoInscripcion).filter_by(tipo_persona_id=int(tipo_persona_id), activo=True).first()
     nuevo = models.Usuario(nombre=nombre, apellido=apellido, telefono=telefono, correo=correo, 
                            pin_hash=hash_pin(PIN_TEMPORAL), tipo_persona_id=tipo_persona_id,
@@ -102,8 +124,7 @@ def crear_usuario(nombre: str, apellido: str, telefono: str, correo: str, tipo_p
 @app.post("/admin/migrar-socio")
 def migrar_socio(nombre: str, apellido: str, telefono: str, correo: str, tipo_persona_id: int, current_user: models.Usuario = Depends(get_current_user), db: Session = Depends(get_db)):
     if not current_user.es_admin: raise HTTPException(status_code=403, detail="No autorizado")
-    vencimiento = datetime.utcnow() + timedelta(days=DIAS_VIGENCIA)
-
+    vencimiento = get_now().replace(tzinfo=None) + timedelta(days=DIAS_VIGENCIA)
     # Buscamos el costo en la tabla de Reinscripción
     costo_ref = db.query(models.CostoReinscripcion).filter_by(tipo_persona_id=int(tipo_persona_id), activo=True).first()
 
@@ -127,8 +148,7 @@ def reinscribir_socio(telefono: str, tipo_persona_id: int, current_user: models.
     if not current_user.es_admin: raise HTTPException(status_code=403, detail="No autorizado")
     u = db.query(models.Usuario).filter_by(telefono=telefono).first()
     if not u: raise HTTPException(status_code=404, detail="No encontrado")
-    
-    u.fecha_vencimiento = datetime.utcnow() + timedelta(days=DIAS_VIGENCIA)
+    u.fecha_vencimiento = get_now().replace(tzinfo=None) + timedelta(days=DIAS_VIGENCIA) 
     u.activo = True
     u.tipo_persona_id = tipo_persona_id
     u.tipo_tramite = "Reinscripcion"
@@ -150,41 +170,58 @@ def reset_pin(telefono_usuario: str, current_user: models.Usuario = Depends(get_
     db.commit()
     return {"mensaje": "Reset exitoso"}
 
-# Endpoint para Listar Socios ordenados por apellido
-@app.get("/admin/listar-usuarios")
-def listar_usuarios(current_user: models.Usuario = Depends(get_current_user), db: Session = Depends(get_db)):
-    if not current_user.es_admin:
-        raise HTTPException(status_code=403, detail="No autorizado")
+# --- CONFIGURACIÓN DE SEGURIDAD EXTRA ---
+SUPER_ADMINS = ["5520217178"] # <-- Pon aquí los números autorizados
 
-    # Ordenamos por apellido de forma ascendente (A-Z)
+@app.get("/admin/asistencias-rango")
+def asistencias_rango(inicio: str, fin: str, current_user: models.Usuario = Depends(get_current_user), db: Session = Depends(get_db)):
+    if not current_user.es_admin: raise HTTPException(status_code=403)
+
+    # Buscamos en el rango de fechas
+    # Al usar get_now() anteriormente, el timestamp ya está en tu hora local
+    logs = db.query(models.Acceso).filter(
+        models.func.strftime('%Y-%m-%d', models.Acceso.timestamp) >= inicio,
+        models.func.strftime('%Y-%m-%d', models.Acceso.timestamp) <= fin
+    ).order_by(models.Acceso.timestamp.asc()).all()
+
+    total_visitas = len([l for l in logs if l.tipo_evento == "entrada"])
+
+    return {
+        "datos": [
+            {
+                "fecha": l.timestamp.strftime("%d/%m/%Y"),
+                "hora": l.timestamp.strftime("%H:%M:%S"), # <-- Mostramos hora local formateada
+                "socio": f"{l.usuario.nombre} {l.usuario.apellido}",
+                "actividad": l.actividad,
+                "evento": l.tipo_evento.capitalize()
+            } for l in logs
+        ],
+        "resumen": {"total": total_visitas, "periodo": f"{inicio} al {fin}"}
+    }
+
+@app.get("/admin/lista-detallada-socios")
+def lista_detallada_socios(current_user: models.Usuario = Depends(get_current_user), db: Session = Depends(get_db)):
+    if not current_user.es_admin: raise HTTPException(status_code=403)
     usuarios = db.query(models.Usuario).filter(models.Usuario.es_admin == False).order_by(models.Usuario.apellido.asc()).all()
-
+    ahora = get_now().replace(tzinfo=None)
     return [
         {
             "nombre": u.nombre,
             "apellido": u.apellido,
-            "telefono": u.telefono
+            "tramite": u.tipo_tramite,
+            "estado": "✅ Activo" if (u.activo and u.fecha_vencimiento and u.fecha_vencimiento > ahora) else "❌ Inactivo"
         } for u in usuarios
     ]
 
-# Endpoint para Historial de Asistencias
-@app.get("/admin/historial-hoy")
-def historial_hoy(current_user: models.Usuario = Depends(get_current_user), db: Session = Depends(get_db)):
-    if not current_user.es_admin:
-        raise HTTPException(status_code=403)
-
-    hoy_inicio = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-    logs = db.query(models.Acceso).filter(models.Acceso.timestamp >= hoy_inicio).order_by(models.Acceso.timestamp.desc()).all()
-
-    # Retornamos la lista (si está vacía, el frontend manejará el mensaje)
-    return [
-        {
-            "hora": l.timestamp.strftime("%H:%M"),
-            "socio": f"{l.usuario.nombre} {l.usuario.apellido}",
-            "actividad": l.actividad,
-            "evento": l.tipo_evento.capitalize()
-        } for l in logs
-    ]
+@app.post("/admin/cierre-semestre")
+def cierre_semestre(current_user: models.Usuario = Depends(get_current_user), db: Session = Depends(get_db)):
+    # VALIDACIÓN DOBLE: Debe ser admin Y estar en la lista blanca
+    if not current_user.es_admin or current_user.telefono not in SUPER_ADMINS:
+        raise HTTPException(status_code=403, detail="No tienes permisos de Super Administrador para esta acción.")
+    
+    db.query(models.Usuario).filter(models.Usuario.es_admin == False).update({"activo": False})
+    db.commit()
+    return {"mensaje": "Cierre de semestre completado"}
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 @app.get("/")

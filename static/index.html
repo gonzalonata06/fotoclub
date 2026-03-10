@@ -9,17 +9,25 @@
         .card { background: white; padding: 2rem; border-radius: 1rem; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 400px; }
         input, select, button { width: 100%; padding: 12px; margin: 8px 0; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; }
         button { background: #007bff; color: white; border: none; font-weight: bold; cursor: pointer; }
-        .admin-btn { background: #6f42c1; } 
-        .migrate-btn { background: #28a745; } 
+        .admin-btn { background: #6f42c1; }
+        .migrate-btn { background: #28a745; }
         .danger-btn { background: #dc3545; }
         .hidden { display: none; }
         .msg { padding: 10px; border-radius: 5px; margin-top: 10px; text-align: center; font-size: 0.85rem; }
-        .success { background: #d4edda; color: #155724; } 
+        .success { background: #d4edda; color: #155724; }
         .error { background: #f8d7da; color: #721c24; }
         hr { border: 0; border-top: 1px solid #eee; margin: 15px 0; }
         label { font-size: 0.75rem; font-weight: bold; color: #555; }
         .confirm-screen { text-align: center; animation: fadeIn 0.5s; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        @media print {
+            .no-print, button, input, hr, label { display: none !important; }
+            .only-print { display: block !important; }
+            body { background: white; padding: 0; display: block; }
+            .card { width: 100%; border: none; box-shadow: none; padding: 0; }
+        }
+        .only-print { display: none; }
     </style>
 </head>
 <body>
@@ -27,7 +35,7 @@
     <div id="sec-login">
         <h2>📸 Fotoclub</h2>
         <input type="text" id="login-tel" placeholder="Teléfono" maxlength="10">
-        <input type="password" id="login-pin" placeholder="PIN" maxlength="4">
+        <input type="password" id="login-pin" placeholder="PIN (default 0000)" maxlength="4">
         <button onclick="authAction()">Entrar</button>
     </div>
 
@@ -56,7 +64,6 @@
 
     <div id="sec-admin" class="hidden">
         <h3>🛠 Panel de Control</h3>
-        
         <label>NUEVO SOCIO O MIGRACIÓN:</label>
         <input type="text" id="adm-nom" placeholder="Nombre(s)">
         <input type="text" id="adm-ape" placeholder="Apellido(s)">
@@ -68,17 +75,13 @@
             <option value="3">Externo</option>
         </select>
         <button class="admin-btn" onclick="userAction('crear-usuario')">Inscribir como Nuevo</button>
-        <button class="migrate-btn" onclick="userAction('migrar-socio')">Reinscribir socio no dado de alta</button>
+        <button class="migrate-btn" onclick="userAction('migrar-socio')">Reinscribir socio migrado</button>
 
-	<hr>
-	<label>REPORTES:</label>
-	<div style="display: flex; gap: 5px;">
-    	<button class="admin-btn" onclick="listarSocios()">👥 Listar Socios</button>
-    	<button class="admin-btn" onclick="verAsistencias()">📋 Asistencias Hoy</button>
-	</div>
-	<div id="reporte-container" style="font-size: 0.8rem; margin-top: 10px; background: #f9f9f9; border-radius: 5px; overflow-x: auto;"></div>
         <hr>
+        <label>REPORTE AVANZADO:</label>
+        <button onclick="cambiarVista('reportes')" style="background: #17a2b8;">📂 Abrir sección de reportes</button>
 
+        <hr>
         <label>RENOVAR MEMBRESÍA VENCIDA:</label>
         <input type="text" id="re-tel" placeholder="Teléfono del socio" maxlength="10">
         <button class="migrate-btn" onclick="reInscribirAction()">Aplicar Renovación</button>
@@ -87,9 +90,43 @@
         <label>SOPORTE TÉCNICO:</label>
         <input type="text" id="adm-reset-tel" placeholder="Teléfono para Reset PIN" maxlength="10">
         <button class="danger-btn" onclick="resetPinAction()">Resetear PIN a 0000</button>
-        
+
         <hr>
         <button onclick="logout()" style="background:#6c757d">Salir del Panel</button>
+    </div>
+
+    <div id="sec-reportes-avanzados" class="hidden">
+        <div class="no-print">
+            <button onclick="cambiarVista('admin')" style="background:#6c757d; margin-bottom:15px;">⬅ Volver</button>
+            <h3>📊 Centro de Datos</h3>
+            
+            <div style="background: #f8f9fa; padding: 10px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 10px;">
+                <label>Rango de Asistencias:</label>
+                <div style="display: flex; gap: 5px; margin-top:5px;">
+                    <input type="date" id="fecha-inicio">
+                    <input type="date" id="fecha-fin">
+                </div>
+                <button class="admin-btn" onclick="consultarRangoAsistencias()">Generar Reporte</button>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <button class="migrate-btn" onclick="consultarListaDetallada()">👥 Ver Socios</button>
+                <button onclick="window.print()" style="background:#28a745;">🖨️ Imprimir</button>
+            </div>
+
+            <hr>
+            <div style="border: 2px solid #dc3545; padding: 10px; border-radius: 8px;">
+                <label style="color:#dc3545; font-weight:bold;">🔐 ACCIONES ESPECIALES:</label>
+                <button class="danger-btn" onclick="cierreSemestreAction()">Cierre de Semestre (Reset)</button>
+            </div>
+        </div>
+
+        <div class="only-print" style="text-align:center;">
+            <h2 id="print-title">Reporte Fotoclub</h2>
+            <p id="print-stats" style="font-weight:bold;"></p>
+            <hr>
+        </div>
+        <div id="reporte-avanzado-container" style="font-size: 0.8rem; margin-top: 15px;"></div>
     </div>
 
     <div id="global-msg" class="msg hidden"></div>
@@ -98,12 +135,22 @@
 <script>
     let token = null;
 
-    const showMsg = (t, e=false) => { 
+    const showMsg = (t, e=false) => {
         const m = document.getElementById("global-msg");
         m.innerText = t; m.className = "msg " + (e ? "error" : "success");
         m.classList.remove("hidden");
         setTimeout(() => m.classList.add("hidden"), 4000);
     };
+
+    function renderTable(data, columns, mensajeVacio = "No hay registros disponibles.") {
+        if (!data || data.length === 0) return `<p style="padding: 20px; text-align: center; color: #666;">${mensajeVacio}</p>`;
+        let html = '<table style="width:100%; border-collapse: collapse; text-align: left; margin-top:10px;">';
+        html += `<tr style="background:#eee;">${columns.map(c => `<th style="padding:8px; border-bottom: 2px solid #ddd;">${c}</th>`).join('')}</tr>`;
+        data.forEach(row => {
+            html += `<tr style="border-bottom: 1px solid #eee;">${Object.values(row).map(v => `<td style="padding:8px;">${v}</td>`).join('')}</tr>`;
+        });
+        return html + '</table>';
+    }
 
     async function authAction() {
         const tel = document.getElementById("login-tel").value;
@@ -124,137 +171,122 @@
             }
         } catch(e) { showMsg("Servidor desconectado", true); }
     }
-
+    
     async function asistenciaAction() {
-        const act = document.getElementById("acc-actividad").value;
-        const res = await fetch(`/acceso?actividad=${act}`, {
-            method: 'POST', headers: {'Authorization': 'Bearer ' + token}
-        });
-        if(res.ok) {
-            const nombre = document.getElementById("socio-nombre").innerText;
-            document.getElementById("socio-contenido").innerHTML = `
-                <div class="confirm-screen">
-                    <h2 style="color: #28a745;">¡ÉXITO!</h2>
-                    <div style="background: #28a745; color: white; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
-                        <p style="font-size: 1.2rem; font-weight: bold;">ACCESO REGISTRADO</p>
-                        <p>${nombre}</p>
-                        <p style="font-size: 0.8rem;">Salida automática programada (+2h)</p>
-                    </div>
-                    <p>La sesión se cerrará en <strong id="countdown">10</strong> segundos...</p>
-                </div>`;
-            let s = 10;
-            setInterval(() => { s--; if(document.getElementById("countdown")) document.getElementById("countdown").innerText = s; if(s<=0) location.reload(); }, 1000);
-        } else showMsg("Error al registrar entrada", true);
+    const act = document.getElementById("acc-actividad").value;
+    const res = await fetch(`/acceso?actividad=${act}`, {
+        method: 'POST',
+        headers: {'Authorization': 'Bearer ' + token}
+    });
+
+    if(res.ok) {
+        const d = await res.json(); // <-- Leemos la respuesta del servidor
+        const nombre = document.getElementById("socio-nombre").innerText;
+
+        document.getElementById("socio-contenido").innerHTML = `
+            <div class="confirm-screen">
+                <h2 style="color:#28a745; margin-bottom:0;">¡ÉXITO!</h2>
+                <p style="font-size:0.8rem; color:#666; margin-top:5px;">Registro oficial del Fotoclub</p>
+
+                <div style="background:#28a745; color:white; padding:20px; border-radius:10px; margin-bottom:15px; box-shadow: 0 4px 10px rgba(40,167,69,0.3);">
+                    <p style="font-size: 1.1rem; font-weight: bold; margin-bottom:10px;">ACCESO CONFIRMADO</p>
+                    <p style="font-size: 1.3rem; margin: 10px 0;">${nombre}</p>
+                    <hr style="border-top: 1px solid rgba(255,255,255,0.3);">
+                    <p style="font-family: monospace; font-size: 1.1rem; margin-top:10px;">
+                        ${d.fecha_confirmada} | ${d.hora_confirmada}
+                    </p>
+                </div>
+
+                <p style="color:#555;">La sesión expirará por seguridad en:</p>
+                <div style="font-size: 2.5rem; font-weight: bold; color: #dc3545;" id="countdown">10</div>
+                <p style="font-size:0.7rem; color:#888;">No se aceptan capturas de pantalla sin cronómetro activo.</p>
+            </div>`;
+
+        let s = 10;
+        const interval = setInterval(() => {
+            s--;
+            const cd = document.getElementById("countdown");
+            if(cd) cd.innerText = s;
+            if(s <= 0) {
+                clearInterval(interval);
+                location.reload();
+            }
+        }, 1000);
+    } else {
+        showMsg("Error al registrar entrada", true);
     }
+}   
 
     async function userAction(endpoint) {
         const n = document.getElementById("adm-nom").value, a = document.getElementById("adm-ape").value;
         const t = document.getElementById("adm-tel").value, c = document.getElementById("adm-correo").value;
         const tp = document.getElementById("adm-tipo-pers").value;
-        
-        if(!n || !t) return showMsg("Nombre y teléfono son obligatorios", true);
-
+        if(!n || !t) return showMsg("Nombre y teléfono obligatorios", true);
         const res = await fetch(`/admin/${endpoint}?nombre=${encodeURIComponent(n)}&apellido=${encodeURIComponent(a)}&telefono=${t}&correo=${encodeURIComponent(c)}&tipo_persona_id=${tp}`, {
             method:'POST', headers:{'Authorization':'Bearer '+token}
         });
-        if(res.ok) { 
-            showMsg("✅ Operación exitosa"); 
-            document.querySelectorAll("#sec-admin input").forEach(i => i.value = ""); 
-        } else {
-            const d = await res.json();
-            showMsg(d.detail || "Error en el registro", true);
-        }
+        if(res.ok) { showMsg("✅ Éxito"); document.querySelectorAll("#sec-admin input").forEach(i => i.value = ""); }
+        else { const d = await res.json(); showMsg(d.detail || "Error", true); }
     }
 
     async function reInscribirAction() {
         const t = document.getElementById("re-tel").value;
-        const tp = document.getElementById("adm-tipo-pers").value; // Usa el tipo de persona seleccionado arriba
-        if(!t) return showMsg("Ingrese el teléfono del socio", true);
-
-        const res = await fetch(`/admin/reinscribir-socio?telefono=${t}&tipo_persona_id=${tp}`, {
-            method:'POST', headers:{'Authorization':'Bearer '+token}
-        });
-        if(res.ok) {
-            showMsg("✅ Membresía renovada con éxito");
-            document.getElementById("re-tel").value = "";
-        } else {
-            const d = await res.json();
-            showMsg(d.detail || "Error al renovar", true);
-        }
+        const tp = document.getElementById("adm-tipo-pers").value;
+        if(!t) return showMsg("Ingrese el teléfono", true);
+        const res = await fetch(`/admin/reinscribir-socio?telefono=${t}&tipo_persona_id=${tp}`, { method:'POST', headers:{'Authorization':'Bearer '+token} });
+        if(res.ok) { showMsg("✅ Renovado"); document.getElementById("re-tel").value = ""; }
+        else { const d = await res.json(); showMsg(d.detail || "Error", true); }
     }
 
     async function resetPinAction() {
         const t = document.getElementById("adm-reset-tel").value;
-        if(!t) return showMsg("Ingrese el teléfono", true);
-        const res = await fetch(`/admin/reset-pin?telefono_usuario=${t}`, {
-            method: 'POST', headers: {'Authorization': 'Bearer ' + token}
-        });
-        if(res.ok) {
-            showMsg("✅ PIN restablecido a 0000");
-            document.getElementById("adm-reset-tel").value = "";
-        } else showMsg("Socio no encontrado", true);
+        const res = await fetch(`/admin/reset-pin?telefono_usuario=${t}`, { method: 'POST', headers: {'Authorization': 'Bearer ' + token} });
+        if(res.ok) { showMsg("✅ PIN a 0000"); document.getElementById("adm-reset-tel").value = ""; }
+        else showMsg("No encontrado", true);
     }
 
     async function updatePinAction() {
-        const act = document.getElementById("pin-act").value;
-        const newP = document.getElementById("pin-new").value;
-        if(newP.length !== 4) return showMsg("El PIN debe ser de 4 dígitos", true);
-
-        const res = await fetch(`/cambiar-pin?pin_actual=${act}&pin_nuevo=${newP}`, {
-            method: 'POST', headers: {'Authorization': 'Bearer ' + token}
-        });
-        if(res.ok) { alert("PIN actualizado. Reingresa con tu nueva clave."); location.reload(); }
-        else showMsg("PIN actual incorrecto", true);
+        const act = document.getElementById("pin-act").value, newP = document.getElementById("pin-new").value;
+        if(newP.length !== 4) return showMsg("PIN de 4 dígitos", true);
+        const res = await fetch(`/cambiar-pin?pin_actual=${act}&pin_nuevo=${newP}`, { method: 'POST', headers: {'Authorization': 'Bearer ' + token} });
+        if(res.ok) { alert("PIN actualizado."); location.reload(); }
+        else showMsg("PIN incorrecto", true);
     }
 
-// Función renderTable actualizada para manejar listas vacías con mensaje
-function renderTable(data, columns, mensajeVacio = "No hay registros disponibles.") {
-    if (!data || data.length === 0) {
-        return `<p style="padding: 20px; text-align: center; color: #666; font-style: italic;">${mensajeVacio}</p>`;
+    function cambiarVista(vista) {
+        document.getElementById("sec-admin").classList.toggle("hidden", vista !== 'admin');
+        document.getElementById("sec-reportes-avanzados").classList.toggle("hidden", vista !== 'reportes');
+        document.getElementById("reporte-avanzado-container").innerHTML = "";
     }
-    
-    let html = '<table style="width:100%; border-collapse: collapse; text-align: left;">';
-    html += `<tr style="background:#eee;">${columns.map(c => `<th style="padding:8px; border-bottom: 2px solid #ddd;">${c}</th>`).join('')}</tr>`;
-    
-    data.forEach(row => {
-        html += `<tr style="border-bottom: 1px solid #eee;">
-            ${Object.values(row).map(v => `<td style="padding:8px;">${v}</td>`).join('')}
-        </tr>`;
-    });
-    return html + '</table>';
-}
-// Botón: Listar Socios
-async function listarSocios() {
-    try {
-        const res = await fetch('/admin/listar-usuarios', { 
-            headers: {'Authorization': 'Bearer ' + token} 
-        });
+
+    async function consultarRangoAsistencias() {
+        const inicio = document.getElementById("fecha-inicio").value;
+        const fin = document.getElementById("fecha-fin").value;
+        if(!inicio || !fin) return showMsg("Selecciona fechas", true);
+        const res = await fetch(`/admin/asistencias-rango?inicio=${inicio}&fin=${fin}`, { headers: {'Authorization': 'Bearer ' + token} });
+        const result = await res.json();
+        document.getElementById("print-title").innerText = "Reporte de Asistencias";
+        document.getElementById("print-stats").innerText = `Total visitas: ${result.resumen.total} (${result.resumen.periodo})`;
+        document.getElementById("reporte-avanzado-container").innerHTML = renderTable(result.datos, ['Fecha', 'Hora', 'Socio', 'Actividad', 'Movimiento']);
+    }
+
+    async function consultarListaDetallada() {
+        const res = await fetch('/admin/lista-detallada-socios', { headers: {'Authorization': 'Bearer ' + token} });
         const data = await res.json();
-        document.getElementById("reporte-container").innerHTML = renderTable(data, ['Nombre', 'Apellido', 'Teléfono'], "No hay socios registrados aún.");
-    } catch (e) { 
-        showMsg("Error al conectar con el servidor", true); 
+        document.getElementById("print-title").innerText = "Lista General de Socios";
+        document.getElementById("print-stats").innerText = `Total: ${data.length}`;
+        document.getElementById("reporte-avanzado-container").innerHTML = renderTable(data, ['Nombre', 'Apellido', 'Trámite', 'Estado']);
     }
-}
 
-// Botón: Ver Asistencias
-async function verAsistencias() {
-    try {
-        const res = await fetch('/admin/historial-hoy', { 
-            headers: {'Authorization': 'Bearer ' + token} 
-        });
-        const data = await res.json();
-        const mensaje = "Nadie se ha registrado este día.";
-        document.getElementById("reporte-container").innerHTML = renderTable(data, ['Hora', 'Socio', 'Actividad', 'Evento'], mensaje);
-    } catch (e) { 
-        showMsg("Error al obtener asistencias", true); 
+    async function cierreSemestreAction() {
+        if(!confirm("⚠️ ¿Confirmas el cierre del semestre?")) return;
+        const res = await fetch('/admin/cierre-semestre', { method: 'POST', headers: {'Authorization': 'Bearer ' + token} });
+        const d = await res.json();
+        if(res.ok) { showMsg("✅ " + d.mensaje); }
+        else showMsg(d.detail || "No autorizado", true);
     }
-}
-
-// También puedes eliminar la función filtrarReporte() y la variable let datosActuales;
 
     function logout() { location.reload(); }
-
-
 </script>
 </body>
 </html>
